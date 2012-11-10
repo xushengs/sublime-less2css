@@ -23,6 +23,19 @@ class Compiler:
       return ''
 
     dirs = self.parseBaseDirs(base_dir, output_dir)
+
+    # if current file inside a project, check output directory is set or exists
+    if dirs['project'] != '':
+      message = ''
+      if output_dir == '':
+        message = 'Please set output directory first!'
+      elif not os.path.isdir(dirs['css']):
+        message = "Output directory doesn't exist: " + dirs['css']
+
+      if message != '':
+        sublime.error_message(message)
+        return ''
+
     return self.convertLess2Css(dirs = dirs, file = fn, minimised = minimised)
 
   # for command 'AllLessToCssCommand'
@@ -31,45 +44,66 @@ class Compiler:
 
     #default_base
     settings = sublime.load_settings('less2css.sublime-settings')
-    base_dir = settings.get("lessBaseDir")
-    output_dir = settings.get("outputDir")
-    minimised = settings.get("minify", True)
+    base_dir = settings.get('lessBaseDir')
+    output_dir = settings.get('outputDir')
+    minimised = settings.get('minify', True)
+
+    # if output directory is not set, give errors
+    if output_dir == '':
+      message = 'Please set output directory first!'
+      sublime.error_message(message)
+      return ''
 
     dirs = self.parseBaseDirs(base_dir, output_dir)
 
+    # if current file is not inside a project, give an error
+    if dirs['project'] == '':
+      message = 'Unknow project! Please open a project.'
+      sublime.error_message(message)
+      return ''
+
+    # if output directory does not exist, give an error
+    if not os.path.isdir(dirs['css']):
+      message = "Output directory doesn't exist: " + dirs['css']
+      sublime.error_message(message)
+      return ''
+
+    # compile all less files in base directory
     for r,d,f in os.walk(dirs['less']):
       for files in f:
-        if files.endswith(".less"):
+        if files.endswith('.less'):
           #add path to file name
           fn = os.path.join(r, files)
           #call compiler
           resp = self.convertLess2Css(dirs, file = fn, minimised = minimised)
 
-          if resp != "":
+          if resp != '':
             err_count = err_count + 1
 
     if err_count > 0:
-      return "There were errors compiling all LESS files"
+      return 'There were errors compiling all LESS files.'
     else:
       return ''
-
 
   # do convert
   def convertLess2Css(self, dirs, file = '', minimised = True):
     out = ''
 
     #get the current file & its css variant
-    if file == "":
-      less = self.view.file_name().encode("utf_8")
+    if file == '':
+      less = self.view.file_name().encode('utf_8')
     else:
       less = file
 
-    if not less.endswith(".less"):
+    if not less.endswith('.less'):
       return ''
 
     css = re.sub('\.less$', '.css', less)
-    sub_path = css.replace(dirs['less'] + os.path.sep, '')
-    css = os.path.join(dirs['css'], sub_path)
+
+    # if inside a project, keep subdirectory tree
+    if dirs['project'] != '':
+      sub_path = css.replace(dirs['less'] + os.path.sep, '')
+      css = os.path.join(dirs['css'], sub_path)
 
     # create directories
     output_dir = os.path.dirname(css)
@@ -115,8 +149,9 @@ class Compiler:
 
   # try to find project folder,
   # and normalize relative paths such as /a/b/c/../d to /a/b/d
-  def parseBaseDirs(self, base_dir = './', output_dir = ''): 
-    fn = self.view.file_name().encode("utf_8")
+  @classmethod
+  def parseBaseDirs(cls, base_dir = './', output_dir = ''):
+    fn = sublime.active_window().active_view().file_name().encode("utf_8")
     file_dir = os.path.dirname(fn)
 
     # find project path
@@ -130,12 +165,13 @@ class Compiler:
         proj_dir = folder
         break
 
+    absolute_path_re = re.compile(r'^/|^\w:[\/]', re.I)
     # normalize less base path
-    if not base_dir.startswith('/'):
+    if not absolute_path_re.search(base_dir):
       base_dir = os.path.normpath(os.path.join(proj_dir, base_dir))
 
     # normalize css output base path
-    if not output_dir.startswith('/'):
+    if not absolute_path_re.search(output_dir):
       output_dir = os.path.normpath(os.path.join(proj_dir, output_dir))
     
     return { 'project': proj_dir, 'less': base_dir, 'css' : output_dir }

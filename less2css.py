@@ -34,6 +34,7 @@ class LessToCssCommand(sublime_plugin.TextCommand):
 
 class AutoLessToCssCommand(sublime_plugin.TextCommand):
   def run(self, text):
+    print os.path.abspath('.')
     l2c = compiler.Compiler(self.view)
     resp = l2c.convertOne(is_auto_save = True)
     MessageWindow(resp)
@@ -65,13 +66,12 @@ class SetLessBaseCommand(sublime_plugin.WindowCommand):
 
     settings = sublime.load_settings(settings_base)
     
-    if os.path.isdir(text):
-      settings.set("lessBaseDir", text)
-      sublime.save_settings(settings_base) #have to assume this is successful...
+    settings.set("lessBaseDir", text)
+    sublime.save_settings(settings_base)
 
-      sublime.status_message("Less Base Directory updated")
-    else:
-      sublime.error_message("Entered directory does not exist")
+    message = 'Less base directory updated to: ' + text
+    sublime.status_message(message)
+    sublime.message_dialog(message)
 
 class SetOutputDirCommand(sublime_plugin.WindowCommand):
   def run(self):
@@ -81,14 +81,13 @@ class SetOutputDirCommand(sublime_plugin.WindowCommand):
     settings_base = 'less2css.sublime-settings'
 
     settings = sublime.load_settings(settings_base)
-    
-    if os.path.isdir(text):
-      settings.set("outputDir", text)
-      sublime.save_settings(settings_base)
 
-      sublime.status_message("Output directory updated")
-    else:
-      sublime.error_message("Entered directory does not exist")
+    settings.set('outputDir', text)
+    sublime.save_settings(settings_base)
+
+    message = 'Output directory updated to: ' + text
+    sublime.status_message(message)
+    sublime.message_dialog(message)
 
 #toggle minification
 class toggleCssMinificationCommand(sublime_plugin.WindowCommand):
@@ -107,9 +106,11 @@ class toggleCssMinificationCommand(sublime_plugin.WindowCommand):
 
     if minify == -1:
       #input was cancelled, don't change
-      minify_flag = settings.get("minify", True) #existing or default
+      minify_flag = settings.get('minify', True) #existing or default
 
-    settings.set("minify", minify_flag)
+    settings.set('minify', minify_flag)
     sublime.save_settings(settings_base)
 
-    sublime.status_message("Updated minify flag")
+    message = 'Minify flag updated to: ' + str(minify_flag)
+    sublime.status_message(message)
+    sublime.message_dialog(message)
